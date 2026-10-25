@@ -1,4 +1,7 @@
 """GRPO with TRL: reward short completions (a toy reward, like in the HF course)."""
+import json
+from pathlib import Path
+
 from datasets import load_dataset
 from trl import GRPOConfig, GRPOTrainer
 
@@ -25,3 +28,8 @@ trainer = GRPOTrainer(
     train_dataset=dataset,
 )
 trainer.train()
+
+# Save the metrics so the docs site can plot them (commit this file).
+out = Path(__file__).resolve().parents[1] / "docs" / "results" / "grpo_log.json"
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(trainer.state.log_history, indent=1))

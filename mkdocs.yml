@@ -1,0 +1,32 @@
+site_name: LLM RL Basics
+site_description: Learning reinforcement learning for LLMs (RLHF, PPO, DPO, GRPO)
+repo_url: https://github.com/enricoconvento98/llm-rl-basics
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/brightness-7, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/brightness-4, name: Light mode}
+  features: [navigation.sections, content.code.copy]
+
+nav:
+  - Home: index.md
+  - 1. RL basics: rl-basics.md
+  - 2. RLHF & PPO: rlhf-ppo.md
+  - 3. DPO: dpo.md
+  - 4. GRPO: grpo.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.arithmatex: {generic: true}
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js

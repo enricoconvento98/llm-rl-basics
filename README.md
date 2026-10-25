@@ -14,6 +14,19 @@ Notes and small experiments for learning reinforcement learning for LLMs, follow
 
 Each folder has a `NOTES.md` for what you learn and a starter script you can run.
 
+## Docs and results
+
+The site at **https://enricoconvento98.github.io/llm-rl-basics/** explains each topic and shows the charts.
+It is built from `docs/` by `.github/workflows/docs.yml` on every push to `main`.
+
+Preview it locally:
+
+```bash
+pip install -r requirements-docs.txt
+./scripts/generate_results.sh
+mkdocs serve
+```
+
 ## Setup
 
 ```bash

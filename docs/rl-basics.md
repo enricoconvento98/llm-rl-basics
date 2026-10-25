@@ -25,3 +25,16 @@ Three slot machines pay out with probability 0.2, 0.5 and 0.8. The policy starts
 learns to pick the best one.
 
 ![Bandit training](results/bandit.png)
+
+## Experiment: why the baseline matters
+
+Source: [`01-rl-basics/baseline_comparison.py`](https://github.com/enricoconvento98/llm-rl-basics/blob/main/01-rl-basics/baseline_comparison.py).
+A 10-armed bandit where every reward is around +5. Without a baseline, every action that gets
+picked is pushed **up**, just by different amounts, so the signal is buried in noise. With a
+baseline, only better-than-average actions are pushed up. Averaged over 100 runs:
+
+![Baseline comparison](results/baseline_comparison.png)
+
+!!! tip "Takeaway"
+    Policy gradient learns from **how much better than expected** an action was, not from the
+    raw reward. The baseline becomes the *value model* in PPO and the *group mean* in GRPO.

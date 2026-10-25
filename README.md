@@ -14,6 +14,11 @@ Notes and small experiments for learning reinforcement learning for LLMs, follow
 
 Each folder has a `NOTES.md` for what you learn and a starter script you can run.
 
+## Real experiments
+
+- [`experiments/gsm8k_grpo`](experiments/gsm8k_grpo): GRPO on GSM8K math with Qwen2.5-0.5B in Colab
+  ([open in Colab](https://colab.research.google.com/github/enricoconvento98/llm-rl-basics/blob/main/experiments/gsm8k_grpo/train_grpo_gsm8k.ipynb)).
+
 ## Docs and results
 
 The site at **https://enricoconvento98.github.io/llm-rl-basics/** explains each topic and shows the charts.

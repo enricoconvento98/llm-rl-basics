@@ -21,6 +21,7 @@ My notes and experiments while learning reinforcement learning for LLMs, followi
 | DPO | [β sweep](dpo.md#experiment-what-does-in-dpo) | What does β control? |
 | GRPO | [Group advantages](grpo.md#result-group-relative-advantages) | How are rewards turned into advantages? |
 | GRPO | [Group size](grpo.md#experiment-group-size-on-a-toy-math-task) | How big should the group be? |
+| GRPO (real LLM) | [GSM8K with Qwen2.5-0.5B](real-gsm8k-grpo.md) | Does GRPO make a real model better at math? |
 
 !!! info "How the results get here"
     Every push to `main` re-runs the CPU demos and redraws the charts.

@@ -20,9 +20,12 @@ nav:
   - 2. RLHF & PPO: rlhf-ppo.md
   - 3. DPO: dpo.md
   - 4. GRPO: grpo.md
+  - Real experiments:
+      - GRPO on GSM8K: real-gsm8k-grpo.md
 
 markdown_extensions:
   - admonition
+  - pymdownx.details
   - pymdownx.highlight
   - pymdownx.superfences
   - pymdownx.arithmatex: {generic: true}

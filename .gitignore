@@ -5,3 +5,5 @@ outputs/
 wandb/
 site/
 docs/results/*.png
+docs/real-gsm8k-grpo.md
+.pytest_cache/

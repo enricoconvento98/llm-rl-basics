@@ -1,0 +1,7 @@
+# Thresholds for rltrading.data.quality. A check that fails with severity "error" blocks use of the data.
+stale_run_sessions: 5        # warn if the close is unchanged for this many sessions in a row
+jump_abs_log_return: 0.20    # flag a daily move larger than this (|log return|): possible unadjusted split
+jump_abs_log_return_by_calendar:
+  "24/5": 0.05               # fx: daily vol ~0.7%, largest real EURUSD move since 2009 is 0.034
+jump_reversal_ratio: 0.8     # ...and call it a likely bad print if the next day reverses at least this share of it
+max_missing_share: 0.01      # error if more than this share of expected sessions is missing

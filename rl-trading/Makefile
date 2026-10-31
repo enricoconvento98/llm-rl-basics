@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test check up down logs services-check
+.PHONY: install lint format typecheck test check up down logs services-check data-verify data data-report
 
 COMPOSE := docker compose -f docker/docker-compose.yml --env-file .env
 
@@ -36,3 +36,12 @@ services-check:  ## verify Postgres and MLflow are healthy
 	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-rltrading} -d rltrading -tAc "select 'rltrading db ok'"
 	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-rltrading} -d mlflow -tAc "select 'mlflow db ok'"
 	curl -fsS http://127.0.0.1:$${MLFLOW_PORT:-5000}/health && echo " <- mlflow ok"
+
+data-verify:  ## check trading listings against Yahoo by ISIN
+	uv run python -m rltrading.data.download verify
+
+data:  ## download daily bars into data/ and run quality checks
+	uv run python -m rltrading.data.download fetch
+
+data-report:  ## Phase 1 gate report from the stored data
+	uv run python -m rltrading.data.report --out reports/phase1

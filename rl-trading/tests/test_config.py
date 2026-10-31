@@ -7,6 +7,9 @@ from pydantic import ValidationError
 from rltrading.config import (
     CommissionConfig,
     CostsConfig,
+    FeaturesConfig,
+    MomentumConfig,
+    QualityConfig,
     RuntimeConfig,
     Settings,
     UniverseConfig,
@@ -23,7 +26,7 @@ RUNTIME_FILES = sorted((CONFIG_DIR / "runtime").glob("*.yaml"))
 def test_every_shipped_runtime_config_loads(runtime_file: Path) -> None:
     cfg = load_app_config(runtime_file)
     assert cfg.runtime.run_mode == RunMode(runtime_file.stem)
-    assert cfg.universe.symbols
+    assert cfg.universe.asset_ids
     assert 0 < cfg.risk.max_weight_per_asset <= 1
 
 
@@ -87,13 +90,67 @@ def test_commission_rejects_negative() -> None:
         CommissionConfig(per_share=-0.01, pct_of_notional=0, min_per_order=1, max_pct_of_notional=0.01)
 
 
+def _listing(symbol: str, currency: str = "USD") -> dict[str, object]:
+    return {
+        "symbol": symbol,
+        "exchange": "X",
+        "currency": currency,
+        "calendar": "XNYS",
+        "data_symbols": {"yahoo": symbol},
+    }
+
+
+def _asset(asset_id: str) -> dict[str, object]:
+    return {
+        "id": asset_id,
+        "name": "x",
+        "asset_class": "equity",
+        "research": _listing("SPY"),
+        "trading": _listing("SXR8", "EUR"),
+    }
+
+
+UNIVERSE_BASE = {
+    "base_currency": "EUR",
+    "start_date": "2010-01-01",
+    "fx": [{"currency": "USD", "data_symbols": {"yahoo": "EURUSD=X"}}],
+}
+
+
 def test_universe_rejects_duplicates_and_bad_dates() -> None:
-    asset = {"symbol": "SPY", "name": "x", "asset_class": "equity", "exchange": "ARCA", "currency": "USD"}
-    base = {"base_currency": "USD", "start_date": "2010-01-01", "calendar": "XNYS"}
     with pytest.raises(ValidationError, match="duplicate"):
-        UniverseConfig.model_validate(base | {"assets": [asset, asset]})
+        UniverseConfig.model_validate(UNIVERSE_BASE | {"assets": [_asset("a"), _asset("a")]})
     with pytest.raises(ValidationError, match="end_date"):
-        UniverseConfig.model_validate(base | {"end_date": "2009-01-01", "assets": [asset]})
+        UniverseConfig.model_validate(UNIVERSE_BASE | {"end_date": "2009-01-01", "assets": [_asset("a")]})
+
+
+def test_universe_needs_fx_for_every_foreign_currency() -> None:
+    with pytest.raises(ValidationError, match="no fx rate configured for \\['USD'\\]"):
+        UniverseConfig.model_validate(UNIVERSE_BASE | {"fx": [], "assets": [_asset("a")]})
+
+
+def test_shipped_universe_listings() -> None:
+    u = load_yaml(CONFIG_DIR / "universe.yaml", UniverseConfig)
+    assert u.base_currency == "EUR"
+    for asset_id in u.asset_ids:
+        research, trading = u.listing(asset_id, "research"), u.listing(asset_id, "trading")
+        assert research.currency == "USD"
+        assert research.calendar == "XNYS"
+        assert trading.currency in {"EUR", "USD"}  # SXRM.DE is USD-quoted on Yahoo
+        assert trading.calendar == "XETR"
+        assert trading.isin
+        assert "yahoo" in research.data_symbols
+        assert "yahoo" in trading.data_symbols
+
+
+def test_other_shipped_configs_load() -> None:
+    load_yaml(CONFIG_DIR / "features.yaml", FeaturesConfig)
+    load_yaml(CONFIG_DIR / "data_quality.yaml", QualityConfig)
+
+
+def test_momentum_skip_shorter_than_lookback() -> None:
+    with pytest.raises(ValidationError, match="skip"):
+        MomentumConfig(lookback=21, skip=21)
 
 
 def test_load_yaml_requires_mapping(tmp_path: Path) -> None:

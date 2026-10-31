@@ -188,3 +188,12 @@ def test_store_detects_modified_files(tmp_path: pytest.TempPathFactory) -> None:
     bars.iloc[:3].to_parquet(tmp_path / "d.parquet")  # type: ignore[operator]
     with pytest.raises(ValueError, match="snapshot hash"):
         store.load("d")
+
+
+def test_fx_bars_on_the_24_5_calendar_have_no_gaps() -> None:
+    """Regression: a 24/5 session closes at 00:00 UTC on the next day, which must still map back to
+    its own session date (it used to be read as the next day, showing every Monday as missing)."""
+    bars = make_bars("EURUSD=X", "24/5", date(2025, 1, 1), date(2025, 3, 31))
+    report = check_bars(bars, {"EURUSD=X": "24/5"}, QCFG)
+    assert not report.issues
+    assert report.summary.loc["EURUSD=X", "missing_sessions"] == 0

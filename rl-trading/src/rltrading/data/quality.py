@@ -44,10 +44,22 @@ class QualityReport:
         )
 
 
-def _session_dates(ts: pd.DatetimeIndex, calendar: str) -> pd.DatetimeIndex:
-    """Calendar-local date of each timestamp (a close in New York at 16:00 is still that date)."""
-    tz = get_calendar(calendar).tz
-    return pd.DatetimeIndex(ts.tz_convert(tz).tz_localize(None).normalize())
+def _session_dates(ts: pd.DatetimeIndex, calendar: str) -> tuple[pd.DatetimeIndex, np.ndarray]:
+    """Session date of each bar timestamp, and whether the timestamp is exactly that session's close.
+
+    Looked up through the calendar's own close times, because a close can fall on the next calendar
+    day (the 24/5 FX session of Monday closes at 00:00 UTC on Tuesday). Timestamps that are not a
+    session close (bars stamped at 12:00 UTC on a closed day) map to their UTC date.
+    """
+    cal = get_calendar(calendar)
+    closes = cal.closes
+    close_times = pd.DatetimeIndex(closes)
+    close_times = close_times.tz_localize("UTC") if close_times.tz is None else close_times.tz_convert("UTC")
+    close_to_session = pd.Series(closes.index, index=close_times)
+    looked_up = pd.Series(ts.map(close_to_session.get), index=ts)
+    on_close = looked_up.notna().to_numpy()
+    fallback = pd.Series(ts.tz_convert("UTC").tz_localize(None).normalize(), index=ts)
+    return pd.DatetimeIndex(looked_up.where(on_close, fallback)), on_close
 
 
 def check_symbol(
@@ -57,13 +69,12 @@ def check_symbol(
     issues: list[Issue] = []
     cal = get_calendar(calendar)
     ts = pd.DatetimeIndex(bars.index)
-    dates = _session_dates(ts, calendar)
+    dates, on_close = _session_dates(ts, calendar)
 
     if dup := int(ts.duplicated().sum()):
         issues.append(Issue(symbol, "duplicates", "error", f"{dup} duplicate timestamps"))
 
-    closes = pd.DatetimeIndex([cal.session_close(d) if cal.is_session(d) else pd.NaT for d in dates])
-    off_session = ~(closes == ts)
+    off_session = ~on_close
     if n := int(off_session.sum()):
         first = ts[off_session][0]
         issues.append(

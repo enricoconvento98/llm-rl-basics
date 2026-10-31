@@ -1,0 +1,6 @@
+run_mode: shadow
+broker: dryrun
+data_provider: ibkr
+universe_file: universe.yaml
+costs_file: costs.yaml
+risk_file: risk.yaml

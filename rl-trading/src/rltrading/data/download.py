@@ -13,6 +13,7 @@ Each comes with a .meta.json (snapshot hash) and a .quality.json (quality report
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -22,7 +23,7 @@ import yfinance as yf
 
 from rltrading.config import QualityConfig, Settings, UniverseConfig, load_yaml
 from rltrading.data.providers.yfinance_dev import YahooDataProvider
-from rltrading.data.quality import check_bars
+from rltrading.data.quality import bad_prints, check_bars
 from rltrading.data.store import ParquetStore
 
 PROVIDER = "yahoo"
@@ -50,24 +51,51 @@ def dataset_specs(universe: UniverseConfig) -> list[DatasetSpec]:
     return specs
 
 
+def _name(quote: Mapping[str, object]) -> str:
+    return str(quote.get("longname") or quote.get("shortname") or "")
+
+
+def check_listing(
+    isin_quotes: list[Mapping[str, object]],
+    symbol_quotes: list[Mapping[str, object]],
+    symbol: str,
+    quoted_currency: str | None,
+    currency: str,
+) -> list[str]:
+    """Problems with one trading listing; empty if it checks out.
+
+    Yahoo's ISIN search returns one listing per fund, usually not ours, so the symbol is matched
+    by fund name against that listing rather than by being among the results."""
+    own = next((q for q in symbol_quotes if q.get("symbol") == symbol), None)
+    if own is None:
+        return [f"{symbol} not found on Yahoo"]
+    problems = []
+    if isin_quotes and _name(own) not in {_name(q) for q in isin_quotes}:
+        problems.append(f"{symbol} is {_name(own)!r}, the ISIN is {_name(isin_quotes[0])!r}")
+    if quoted_currency != currency:
+        problems.append(f"{symbol} is quoted in {quoted_currency}, configured as {currency}")
+    return problems
+
+
 def verify(universe: UniverseConfig) -> bool:
-    """Look up each trading listing's ISIN on Yahoo and check the configured symbol is among the results."""
+    """Check each trading listing's Yahoo symbol against its ISIN (fund name) and currency."""
     ok = True
     for asset_id in universe.asset_ids:
         lst = universe.listing(asset_id, "trading")
         if lst.isin is None:
             print(f"  {asset_id}: no ISIN configured, skipped")
             continue
-        quotes = yf.Search(lst.isin, max_results=20, news_count=0, lists_count=0).quotes
-        found = {
-            q.get("symbol"): f"{q.get('exchange')} {q.get('longname') or q.get('shortname')}" for q in quotes
-        }
-        expected = lst.data_symbols[PROVIDER]
-        status = "ok" if expected in found else "NOT FOUND"
-        ok &= expected in found
-        print(f"  {asset_id}: {lst.isin} -> {expected}: {status}")
-        for symbol, desc in found.items():
-            print(f"      {symbol:12s} {desc}")
+        symbol = lst.data_symbols[PROVIDER]
+        isin_quotes = yf.Search(lst.isin, max_results=20, news_count=0, lists_count=0).quotes
+        symbol_quotes = yf.Search(symbol, max_results=20, news_count=0, lists_count=0).quotes
+        problems = check_listing(
+            isin_quotes, symbol_quotes, symbol, yf.Ticker(symbol).fast_info.currency, lst.currency
+        )
+        ok &= not problems
+        note = "" if isin_quotes else " (ISIN unknown to Yahoo: name not checked)"
+        print(f"  {asset_id}: {lst.isin} -> {symbol}: {'ok' if not problems else 'MISMATCH'}{note}")
+        for problem in problems:
+            print(f"      {problem}")
     return ok
 
 
@@ -75,13 +103,16 @@ def fetch(universe: UniverseConfig, quality_cfg: QualityConfig, store: ParquetSt
     all_ok = True
     for spec in dataset_specs(universe):
         provider = YahooDataProvider(spec.calendars)
-        bars = provider.daily_bars(list(spec.calendars), universe.start_date, end)
+        raw = provider.daily_bars(list(spec.calendars), universe.start_date, end)
+        dropped = bad_prints(raw, spec.calendars, quality_cfg)
+        bars = raw.drop(dropped)
         source = {
             "provider": PROVIDER,
             "yfinance": version("yfinance"),
             "auto_adjust": True,
             "requested_start": universe.start_date.isoformat(),
             "requested_end": end.isoformat(),
+            "dropped_bad_prints": len(dropped),
         }
         meta = store.save(spec.name, bars, source)
         report = check_bars(bars, spec.calendars, quality_cfg)
@@ -92,6 +123,7 @@ def fetch(universe: UniverseConfig, quality_cfg: QualityConfig, store: ParquetSt
                     "snapshot_id": meta.snapshot_id,
                     "summary": json.loads(report.summary.to_json(orient="index", date_format="iso")),
                     "issues": json.loads(report.issues_frame().to_json(orient="records", date_format="iso")),
+                    "dropped_bad_prints": [{"timestamp": t.isoformat(), "symbol": s} for t, s in dropped],
                 },
                 indent=1,
             )
@@ -99,7 +131,8 @@ def fetch(universe: UniverseConfig, quality_cfg: QualityConfig, store: ParquetSt
         all_ok &= report.ok
         print(
             f"{spec.name}: {meta.rows} rows, {len(meta.symbols)} symbols, snapshot {meta.snapshot_id}, "
-            f"{len(report.errors)} errors, {len(report.issues) - len(report.errors)} warnings"
+            f"{len(dropped)} bad prints dropped, {len(report.errors)} errors, "
+            f"{len(report.issues) - len(report.errors)} warnings"
         )
         print(report.summary.to_string())
     return all_ok

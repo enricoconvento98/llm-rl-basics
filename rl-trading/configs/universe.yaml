@@ -28,16 +28,17 @@ assets:
     asset_class: equity
     research: {symbol: VGK, exchange: ARCA, currency: USD, calendar: XNYS, data_symbols: {yahoo: VGK}}
     trading:
-      {symbol: SXR7, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B4K48X80,
-       data_symbols: {yahoo: SXR7.DE}}   # iShares Core MSCI Europe UCITS ETF EUR (Acc)
+      {symbol: EUNK, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B4K48X80,
+       data_symbols: {yahoo: EUNK.DE}}   # iShares Core MSCI Europe UCITS ETF EUR (Acc); SXR7 is MSCI EMU
 
   - id: us_treasury_7_10
     name: US Treasuries 7-10 years
     asset_class: bond
     research: {symbol: IEF, exchange: NASDAQ, currency: USD, calendar: XNYS, data_symbols: {yahoo: IEF}}
     trading:
-      {symbol: SXRM, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B3VWN518,
+      {symbol: SXRM, exchange: IBIS, currency: USD, calendar: XETR, isin: IE00B3VWN518,
        data_symbols: {yahoo: SXRM.DE}}   # iShares $ Treasury Bond 7-10yr UCITS ETF (Acc)
+    # shortcut: Yahoo quotes SXRM.DE in USD (decided 2026-10-31); recheck the trading currency with IBKR in Phase 7
 
   - id: us_treasury_20_plus
     name: US Treasuries 20+ years

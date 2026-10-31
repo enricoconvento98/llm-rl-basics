@@ -1,7 +1,8 @@
 """Data quality checks for daily bars: gaps, duplicates, stale prices, bad prints, split anomalies.
 
 Every check returns issues instead of fixing anything silently. The report says what was found;
-a human decides what to do about it.
+a human decides what to do about it. The one exception, decided at the Phase 1 gate: `bad_prints`
+lists bars that are plainly wrong, which the download drops and records.
 """
 
 from dataclasses import dataclass, field
@@ -130,7 +131,8 @@ def check_symbol(
         )
 
     log_ret = pd.Series(np.log(close.to_numpy()), index=ts).diff()
-    for i in (int(k) for k in np.flatnonzero(log_ret.abs().to_numpy() > cfg.jump_abs_log_return)):
+    jump = cfg.jump_abs_log_return_by_calendar.get(calendar, cfg.jump_abs_log_return)
+    for i in (int(k) for k in np.flatnonzero(log_ret.abs().to_numpy() > jump)):
         move = float(log_ret.iloc[i])
         nxt = float(log_ret.iloc[i + 1]) if i + 1 < len(log_ret) else 0.0
         reverted = np.sign(nxt) == -np.sign(move) and abs(nxt) >= cfg.jump_reversal_ratio * abs(move)
@@ -172,3 +174,14 @@ def check_bars(bars: pd.DataFrame, calendars: dict[str, str], cfg: QualityConfig
         rows.append(summary)
         issues.extend(found)
     return QualityReport(pd.DataFrame(rows).set_index("symbol"), issues)
+
+
+def bad_prints(bars: pd.DataFrame, calendars: dict[str, str], cfg: QualityConfig) -> pd.MultiIndex:
+    """(timestamp, symbol) of bars to drop: a price <= 0, or a jump reversed the next day."""
+    spikes = {
+        (i.timestamp, i.symbol)
+        for i in check_bars(bars, calendars, cfg).issues
+        if i.check == "jump" and i.severity == "error"
+    }
+    non_positive = set(bars.index[(bars[["open", "high", "low", "close"]] <= 0).any(axis=1).to_numpy()])
+    return pd.MultiIndex.from_tuples(sorted(non_positive | spikes), names=bars.index.names)

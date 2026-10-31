@@ -136,7 +136,7 @@ def test_shipped_universe_listings() -> None:
         research, trading = u.listing(asset_id, "research"), u.listing(asset_id, "trading")
         assert research.currency == "USD"
         assert research.calendar == "XNYS"
-        assert trading.currency == "EUR"
+        assert trading.currency in {"EUR", "USD"}  # SXRM.DE is USD-quoted on Yahoo
         assert trading.calendar == "XETR"
         assert trading.isin
         assert "yahoo" in research.data_symbols

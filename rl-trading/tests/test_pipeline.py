@@ -26,10 +26,11 @@ def fake_market(universe: UniverseConfig) -> dict[str, pd.Series]:
     closes = {"EURUSD=X": eurusd}
     for asset_id in universe.asset_ids:
         research = universe.listing(asset_id, "research").data_symbols["yahoo"]
-        trading = universe.listing(asset_id, "trading").data_symbols["yahoo"]
+        trading = universe.listing(asset_id, "trading")
         usd = pd.Series(100 * np.exp(rng.normal(0.0003, 0.01, len(days)).cumsum()), index=days)
         closes[research] = usd.loc[sessions("XNYS", START, END)]
-        closes[trading] = (usd / eurusd).loc[sessions("XETR", START, END)]
+        native = usd if trading.currency == "USD" else usd / eurusd
+        closes[trading.data_symbols["yahoo"]] = native.loc[sessions("XETR", START, END)]
     return closes
 
 
@@ -92,3 +93,14 @@ def test_dataset_specs_cover_every_listing(universe: UniverseConfig) -> None:
     assert specs["daily/yahoo/research"]["SPY"] == "XNYS"
     assert specs["daily/yahoo/trading"]["SXR8.DE"] == "XETR"
     assert specs["daily/yahoo/fx"] == {"EURUSD=X": "24/5"}
+
+
+def test_check_listing() -> None:
+    fund = {"symbol": "IMAE.AS", "longname": "iShares Core MSCI Europe UCITS ETF EUR (Acc)"}
+    good = {"symbol": "EUNK.DE", "longname": fund["longname"]}
+    other = {"symbol": "SXR7.DE", "longname": "iShares Core MSCI EMU UCITS ETF EUR (Acc)"}
+    assert download.check_listing([fund], [good], "EUNK.DE", "EUR", "EUR") == []
+    assert len(download.check_listing([fund], [other], "SXR7.DE", "EUR", "EUR")) == 1
+    assert len(download.check_listing([fund], [good], "EUNK.DE", "USD", "EUR")) == 1
+    assert download.check_listing([fund], [], "EUNK.DE", "EUR", "EUR") == ["EUNK.DE not found on Yahoo"]
+    assert download.check_listing([], [good], "EUNK.DE", "EUR", "EUR") == []  # ISIN unknown: name unchecked

@@ -9,7 +9,7 @@ from rltrading.data.calendars import sessions
 from rltrading.data.fx import to_base_currency
 from rltrading.data.providers.base import BAR_COLUMNS, DataProvider
 from rltrading.data.providers.yfinance_dev import NON_SESSION_STAMP, stamp_daily_bars, tidy_download
-from rltrading.data.quality import check_bars
+from rltrading.data.quality import bad_prints, check_bars
 from rltrading.data.store import ParquetDataProvider, ParquetStore
 
 QCFG = QualityConfig(
@@ -197,3 +197,37 @@ def test_fx_bars_on_the_24_5_calendar_have_no_gaps() -> None:
     report = check_bars(bars, {"EURUSD=X": "24/5"}, QCFG)
     assert not report.issues
     assert report.summary.loc["EURUSD=X", "missing_sessions"] == 0
+
+
+def test_jump_threshold_per_calendar() -> None:
+    days = pd.bdate_range("2024-01-01", "2024-03-29", tz="UTC")
+    close = np.full(len(days), 1.10)
+    close[20] = 1.20  # ~9% fx spike, reverted next day: under the 0.2 default, over a 0.05 fx override
+    bars = pd.DataFrame(
+        {"open": close, "high": close, "low": close, "close": close, "volume": 0.0}, index=days
+    )
+    bars.index.name = "timestamp"
+    long = bars.assign(symbol="EURUSD=X").set_index("symbol", append=True)
+
+    def jumps(cfg: QualityConfig) -> list[str]:
+        return [i.severity for i in check_bars(long, {"EURUSD=X": "24/5"}, cfg).issues if i.check == "jump"]
+
+    assert jumps(QCFG) == []
+    fx_cfg = QCFG.model_copy(update={"jump_abs_log_return_by_calendar": {"24/5": 0.05}})
+    assert "error" in jumps(fx_cfg)  # the spike; its reversal is also flagged, as a warning
+
+
+def test_bad_prints_lists_reverted_spikes_and_non_positive_prices() -> None:
+    days = pd.bdate_range("2024-01-01", "2024-03-29", tz="UTC")
+    close = np.full(len(days), 100.0)
+    close[20] = 150.0  # spike, reverted next day
+    close[40:] = 50.0  # split-like move that stays: kept
+    opens = close.copy()
+    opens[5] = 0.0
+    bars = pd.DataFrame(
+        {"open": opens, "high": close, "low": opens, "close": close, "volume": 0.0}, index=days
+    )
+    bars.index.name = "timestamp"
+    long = bars.assign(symbol="SPY").set_index("symbol", append=True)
+    dropped = bad_prints(long, {"SPY": "XNYS"}, QCFG)
+    assert list(dropped) == [(days[5], "SPY"), (days[20], "SPY")]

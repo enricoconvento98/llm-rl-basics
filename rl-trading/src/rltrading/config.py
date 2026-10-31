@@ -191,6 +191,7 @@ class AppConfig(_Strict):
 class QualityConfig(_Strict):
     stale_run_sessions: int = Field(gt=1)
     jump_abs_log_return: float = Field(gt=0)
+    jump_abs_log_return_by_calendar: dict[str, float] = {}  # overrides, e.g. tighter for fx
     jump_reversal_ratio: float = Field(gt=0, le=1)
     max_missing_share: float = Field(ge=0, lt=1)
 

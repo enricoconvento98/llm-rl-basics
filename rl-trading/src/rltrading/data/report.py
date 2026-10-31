@@ -42,6 +42,10 @@ def base_currency_closes(store: ParquetStore, universe: UniverseConfig, kind: Li
     symbol_to_asset = {lst.data_symbols[PROVIDER]: a for a, lst in listings.items()}
     currency_of = {lst.data_symbols[PROVIDER]: lst.currency for lst in listings.values()}
     fx_closes = {f.currency: fx.xs(f.data_symbols[PROVIDER], level="symbol")["close"] for f in universe.fx}
+    # fx bars are stamped at the end of their UTC day, so the first session's closes have no rate yet
+    first_rate = max((c.index.min() for c in fx_closes.values()), default=None)
+    if first_rate is not None:
+        bars = bars[bars.index.get_level_values("timestamp") >= first_rate]
     converted = to_base_currency(bars, currency_of, fx_closes, universe.base_currency)
     wide = converted["close"].unstack("symbol").rename(columns=symbol_to_asset)
     return wide[[a for a in universe.asset_ids if a in wide.columns]]
@@ -170,6 +174,12 @@ def build_report(
             lines.append("No issues found.\n")
         else:
             lines += [f"{len(issues)} issue(s):\n", issues.to_markdown(index=False), ""]
+        if dropped := q.get("dropped_bad_prints"):
+            lines += [
+                f"{len(dropped)} bad print(s) dropped before storing:\n",
+                pd.DataFrame(dropped).to_markdown(index=False),
+                "",
+            ]
 
     research_chart = prices_chart(closes["research"], "Research listings in EUR", out / "prices_research.png")
     trading_chart = prices_chart(closes["trading"], "Trading listings in EUR", out / "prices_trading.png")

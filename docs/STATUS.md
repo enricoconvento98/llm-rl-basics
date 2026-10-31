@@ -2,7 +2,7 @@
 
 | Phase | State |
 |---|---|
-| 0 — Scaffolding | In progress |
+| 0 — Scaffolding | At gate: waiting for approval |
 | 1 — Data pipeline | Not started |
 | 2 — Allocation backtesting + baselines | Not started |
 | 3 — Allocation RL agent | Not started |

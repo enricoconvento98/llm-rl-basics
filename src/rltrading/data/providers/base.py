@@ -20,7 +20,9 @@ class DataProvider(Protocol):
         """Adjusted daily OHLCV bars for `symbols`, from `start` to `end` inclusive."""
         ...
 
-    def intraday_bars(self, symbols: Sequence[str], start: datetime, end: datetime, freq: str) -> pd.DataFrame:
+    def intraday_bars(
+        self, symbols: Sequence[str], start: datetime, end: datetime, freq: str
+    ) -> pd.DataFrame:
         """Intraday OHLCV bars at frequency `freq` (a pandas offset alias such as "1min" or "5min")."""
         ...
 

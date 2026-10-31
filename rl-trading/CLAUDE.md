@@ -9,6 +9,9 @@ See [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Commands
 
+Run them from `rl-trading/`. This project is a subfolder of the `llm-rl-basics` repo: CI lives in
+`.github/workflows/rl-trading-ci.yml` and the pre-commit config in `.pre-commit-config.yaml`, both at the repo root.
+
 | Command | What it does |
 |---|---|
 | `make install` | Create the venv and install everything (`uv sync`) |

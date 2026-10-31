@@ -10,9 +10,11 @@ stages: backtest → shadow mode → paper trading. **No real-money trading.**
 
 ## Quick start
 
-Requires [uv](https://docs.astral.sh/uv/) and Docker.
+Requires [uv](https://docs.astral.sh/uv/) and Docker. This project lives in the `rl-trading/` folder of
+the `llm-rl-basics` repository; run every command from that folder.
 
 ```bash
+cd rl-trading
 make install                 # venv + dependencies + pre-commit hooks
 make check                   # lint, format check, type check, tests
 

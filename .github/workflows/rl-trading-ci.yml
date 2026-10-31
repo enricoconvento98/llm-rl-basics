@@ -1,8 +1,14 @@
-name: CI
+name: rl-trading CI
 
 on:
   push:
+    paths: ["rl-trading/**", ".github/workflows/rl-trading-ci.yml"]
   pull_request:
+    paths: ["rl-trading/**", ".github/workflows/rl-trading-ci.yml"]
+
+defaults:
+  run:
+    working-directory: rl-trading
 
 jobs:
   check:
@@ -13,6 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          cache-dependency-glob: rl-trading/uv.lock
       - run: uv sync --locked
       - run: make check
 

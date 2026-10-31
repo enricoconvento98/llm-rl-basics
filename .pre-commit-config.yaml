@@ -1,0 +1,22 @@
+# pre-commit only reads its config from the repository root.
+# Hooks for rl-trading/ run its own pinned tools through uv, so versions always match rl-trading/uv.lock.
+repos:
+  - repo: local
+    hooks:
+      - id: rl-trading-ruff
+        name: ruff (rl-trading)
+        entry: bash -c 'cd rl-trading && uv run ruff check --fix . && uv run ruff format .'
+        language: system
+        files: ^rl-trading/.*\.py$
+        pass_filenames: false
+      - id: rl-trading-mypy
+        name: mypy (rl-trading)
+        entry: bash -c 'cd rl-trading && uv run mypy'
+        language: system
+        files: ^rl-trading/.*\.py$
+        pass_filenames: false
+      - id: no-env-file
+        name: never commit .env
+        entry: .env files hold credentials and must not be committed
+        language: fail
+        files: (^|/)\.env$

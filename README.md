@@ -14,6 +14,12 @@ Notes and small experiments for learning reinforcement learning for LLMs, follow
 
 Each folder has a `NOTES.md` for what you learn and a starter script you can run.
 
+## RL trading system
+
+[`rl-trading/`](rl-trading) is a separate project in this repo: a reinforcement learning trading
+system (allocation + execution agents), built in validated stages. Start with
+[`rl-trading/HANDOFF.md`](rl-trading/HANDOFF.md) and [`rl-trading/README.md`](rl-trading/README.md).
+
 ## Real experiments
 
 - [`experiments/gsm8k_grpo`](experiments/gsm8k_grpo): GRPO on GSM8K math with Qwen2.5-0.5B in Colab

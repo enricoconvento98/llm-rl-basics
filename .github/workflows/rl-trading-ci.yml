@@ -1,0 +1,38 @@
+name: rl-trading CI
+
+on:
+  push:
+    paths: ["rl-trading/**", ".github/workflows/rl-trading-ci.yml"]
+  pull_request:
+    paths: ["rl-trading/**", ".github/workflows/rl-trading-ci.yml"]
+
+defaults:
+  run:
+    working-directory: rl-trading
+
+jobs:
+  check:
+    name: lint, types, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: rl-trading/uv.lock
+      - run: uv sync --locked
+      - run: make check
+
+  services:
+    name: docker compose up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Throwaway .env for CI
+        run: printf "POSTGRES_USER=rltrading\nPOSTGRES_PASSWORD=%s\n" "$(openssl rand -hex 16)" > .env
+      - run: make up
+      - run: make services-check
+      - if: failure()
+        run: docker compose -f docker/docker-compose.yml --env-file .env logs
+      - if: always()
+        run: make down

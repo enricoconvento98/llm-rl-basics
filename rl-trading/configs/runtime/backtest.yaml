@@ -1,0 +1,6 @@
+run_mode: backtest
+broker: simulated
+data_provider: parquet_store
+universe_file: universe.yaml
+costs_file: costs.yaml
+risk_file: risk.yaml

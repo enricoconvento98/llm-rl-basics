@@ -3,6 +3,7 @@ name: Docs
 on:
   push:
     branches: [main]
+    paths-ignore: ["rl-trading/**", ".github/workflows/rl-trading-ci.yml", ".pre-commit-config.yaml"]
   workflow_dispatch:
 
 permissions:

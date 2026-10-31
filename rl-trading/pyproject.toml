@@ -5,11 +5,15 @@ description = "Reinforcement learning trading system: allocation and execution a
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "exchange-calendars>=4.13",
+    "matplotlib>=3.10",
     "numpy>=2.2",
     "pandas>=2.2",
+    "pyarrow>=20",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "pyyaml>=6.0",
+    "yfinance>=1.7",
 ]
 
 [dependency-groups]
@@ -50,6 +54,16 @@ mypy_path = "src"
 packages = ["rltrading", "tests"]
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+# These libraries ship without type information.
+module = ["exchange_calendars", "exchange_calendars.*", "yfinance", "yfinance.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+filterwarnings = [
+    # exchange_calendars calls Series.values on tz-aware data, deprecated in pandas 3.1. Not our code.
+    # (raised from pandas' own module, so it can only be matched by message; checked with -W error)
+    "ignore:Series.values returning an ndarray that drops timezone",
+]

@@ -8,7 +8,7 @@ YAML: they come from environment variables through `Settings`.
 
 from datetime import date
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
@@ -20,6 +20,8 @@ from rltrading.domain import RunMode
 LIVE_OPT_IN_VALUE = "I_UNDERSTAND"
 
 BrokerKind = Literal["simulated", "dryrun", "ibkr"]
+ListingKind = Literal["research", "trading"]
+Currency = Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
 
 # Which order sink each run mode is allowed to use. Live mode is out of scope (HANDOFF §1, §7 phase 8).
 ALLOWED_BROKERS: dict[RunMode, frozenset[str]] = {
@@ -37,33 +39,67 @@ class _Strict(BaseModel):
 # ---------------------------------------------------------------- universe.yaml
 
 
+class Listing(_Strict):
+    """One tradable line of an asset on one exchange."""
+
+    symbol: str = Field(min_length=1)  # exchange ticker
+    exchange: str = Field(min_length=1)
+    currency: Currency
+    calendar: str = Field(min_length=1)  # exchange_calendars name, e.g. "XNYS", "XETR"
+    isin: str | None = Field(default=None, pattern=r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
+    data_symbols: dict[str, str] = Field(min_length=1)  # provider name -> that provider's symbol
+
+
 class Asset(_Strict):
-    symbol: str = Field(min_length=1)
+    """An exposure the allocation agent can hold, with the listing used for research (long US history)
+    and the listing actually traded (UCITS, buyable from an EU retail account)."""
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     name: str
-    asset_class: Literal["equity", "bond", "commodity", "cash"]
-    exchange: str
-    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    asset_class: Literal["equity", "bond", "commodity"]
+    research: Listing
+    trading: Listing
+
+
+class FxRate(_Strict):
+    """Quote convention: `data_symbol` gives units of `currency` per 1 unit of the base currency
+    (Yahoo's "EURUSD=X" is USD per EUR), so price_in_base = price / rate."""
+
+    currency: Currency
+    data_symbols: dict[str, str] = Field(min_length=1)
 
 
 class UniverseConfig(_Strict):
-    base_currency: str = Field(pattern=r"^[A-Z]{3}$")
+    base_currency: Currency
     start_date: date
     end_date: date | None = None  # None = up to the latest available data
-    calendar: str = Field(min_length=1)  # trading calendar name, e.g. "XNYS"
     assets: list[Asset] = Field(min_length=1)
+    fx: list[FxRate] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
-        symbols = [a.symbol for a in self.assets]
-        if len(symbols) != len(set(symbols)):
-            raise ValueError(f"duplicate symbols in universe: {symbols}")
+        ids = [a.id for a in self.assets]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"duplicate asset ids in universe: {ids}")
         if self.end_date is not None and self.end_date <= self.start_date:
             raise ValueError("end_date must be after start_date")
+        quoted = {f.currency for f in self.fx}
+        needed = {lst.currency for a in self.assets for lst in (a.research, a.trading)} - {self.base_currency}
+        if missing := needed - quoted:
+            raise ValueError(
+                f"no fx rate configured for {sorted(missing)} (base currency {self.base_currency})"
+            )
         return self
 
     @property
-    def symbols(self) -> list[str]:
-        return [a.symbol for a in self.assets]
+    def asset_ids(self) -> list[str]:
+        return [a.id for a in self.assets]
+
+    def listing(self, asset_id: str, kind: ListingKind) -> Listing:
+        asset = next((a for a in self.assets if a.id == asset_id), None)
+        if asset is None:
+            raise KeyError(asset_id)
+        return asset.research if kind == "research" else asset.trading
 
 
 # ---------------------------------------------------------------- costs.yaml
@@ -149,6 +185,45 @@ class AppConfig(_Strict):
     risk: RiskLimits
 
 
+# ---------------------------------------------------------------- data_quality.yaml
+
+
+class QualityConfig(_Strict):
+    stale_run_sessions: int = Field(gt=1)
+    jump_abs_log_return: float = Field(gt=0)
+    jump_reversal_ratio: float = Field(gt=0, le=1)
+    max_missing_share: float = Field(ge=0, lt=1)
+
+
+# ---------------------------------------------------------------- features.yaml
+
+
+class MomentumConfig(_Strict):
+    lookback: int = Field(gt=1)  # sessions
+    skip: int = Field(ge=0)  # most recent sessions left out (short-term reversal)
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        if self.skip >= self.lookback:
+            raise ValueError("momentum skip must be shorter than lookback")
+        return self
+
+
+class FeaturesConfig(_Strict):
+    return_windows: list[int] = Field(min_length=1)
+    volatility_windows: list[int] = Field(min_length=1)
+    correlation_window: int = Field(gt=2)
+    momentum: MomentumConfig
+    sessions_per_year: int = Field(gt=0)  # for annualizing volatility
+
+    @field_validator("return_windows", "volatility_windows")
+    @classmethod
+    def _positive_unique(cls, windows: list[int]) -> list[int]:
+        if any(w < 1 for w in windows) or len(set(windows)) != len(windows):
+            raise ValueError(f"windows must be unique and >= 1, got {windows}")
+        return sorted(windows)
+
+
 # ---------------------------------------------------------------- environment settings
 
 
@@ -158,6 +233,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RLTRADING_", env_file=".env", extra="ignore", frozen=True)
 
     config_dir: Path = Path("configs")
+    data_dir: Path = Path("data")  # git-ignored: downloaded bars and their snapshot metadata
     postgres_dsn: SecretStr | None = None
     mlflow_tracking_uri: str = "http://127.0.0.1:5000"
     allow_live: str | None = None

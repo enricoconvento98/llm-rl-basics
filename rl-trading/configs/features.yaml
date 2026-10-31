@@ -1,0 +1,9 @@
+# Feature windows, in sessions (rltrading.features). Every feature is computed from closes strictly
+# before the decision day.
+return_windows: [1, 5, 21, 63]       # 1 day, 1 week, 1 month, 1 quarter
+volatility_windows: [21, 63]
+correlation_window: 63
+momentum:
+  lookback: 252                       # 12 months...
+  skip: 21                            # ...skipping the most recent month (classic 12-1 momentum)
+sessions_per_year: 252

@@ -1,16 +1,56 @@
-# PLACEHOLDER: the final universe and base currency are an open decision (HANDOFF §10).
-# Enrico confirms the list at the start of Phase 1.
+# Asset universe (HANDOFF §10, decided by Enrico on 2026-10-31):
+#   - base currency EUR: values, returns and risk limits are measured in EUR
+#   - research listing: US ETF with a long history, used for training and backtests
+#   - trading listing: UCITS equivalent that an EU retail account can actually buy (PRIIPs/KID)
+# Plus cash (implicit: whatever the weights leave over).
 #
-# Note for that decision: as a retail client in the EU (PRIIPs/KID rules), IBKR will usually not let
-# you buy US-domiciled ETFs such as SPY. Paper/live trading would then need UCITS equivalents
-# (e.g. CSPX, EUNL, IEAG, SGLD), which have shorter histories than their US counterparts.
-base_currency: USD
-start_date: 2010-01-01
+# Trading listings are identified by ISIN. Tickers and Yahoo symbols are verified against
+# Yahoo's symbol search by `make data-verify` before any data is downloaded.
+base_currency: EUR
+start_date: 2005-01-01   # GLD, the youngest research ETF, started in November 2004
 end_date: null
-calendar: XNYS
+
+fx:
+  - currency: USD
+    data_symbols: {yahoo: "EURUSD=X"}   # USD per 1 EUR
+
 assets:
-  - {symbol: SPY, name: SPDR S&P 500 ETF, asset_class: equity, exchange: ARCA, currency: USD}
-  - {symbol: VGK, name: Vanguard FTSE Europe ETF, asset_class: equity, exchange: ARCA, currency: USD}
-  - {symbol: IEF, name: iShares 7-10 Year Treasury Bond ETF, asset_class: bond, exchange: NASDAQ, currency: USD}
-  - {symbol: TLT, name: iShares 20+ Year Treasury Bond ETF, asset_class: bond, exchange: NASDAQ, currency: USD}
-  - {symbol: GLD, name: SPDR Gold Shares, asset_class: commodity, exchange: ARCA, currency: USD}
+  - id: us_equity
+    name: US large-cap equity (S&P 500)
+    asset_class: equity
+    research: {symbol: SPY, exchange: ARCA, currency: USD, calendar: XNYS, data_symbols: {yahoo: SPY}}
+    trading:
+      {symbol: SXR8, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B5BMR087,
+       data_symbols: {yahoo: SXR8.DE}}   # iShares Core S&P 500 UCITS ETF (Acc)
+
+  - id: eu_equity
+    name: European equity
+    asset_class: equity
+    research: {symbol: VGK, exchange: ARCA, currency: USD, calendar: XNYS, data_symbols: {yahoo: VGK}}
+    trading:
+      {symbol: SXR7, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B4K48X80,
+       data_symbols: {yahoo: SXR7.DE}}   # iShares Core MSCI Europe UCITS ETF EUR (Acc)
+
+  - id: us_treasury_7_10
+    name: US Treasuries 7-10 years
+    asset_class: bond
+    research: {symbol: IEF, exchange: NASDAQ, currency: USD, calendar: XNYS, data_symbols: {yahoo: IEF}}
+    trading:
+      {symbol: SXRM, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00B3VWN518,
+       data_symbols: {yahoo: SXRM.DE}}   # iShares $ Treasury Bond 7-10yr UCITS ETF (Acc)
+
+  - id: us_treasury_20_plus
+    name: US Treasuries 20+ years
+    asset_class: bond
+    research: {symbol: TLT, exchange: NASDAQ, currency: USD, calendar: XNYS, data_symbols: {yahoo: TLT}}
+    trading:
+      {symbol: IS04, exchange: IBIS, currency: EUR, calendar: XETR, isin: IE00BSKRJZ44,
+       data_symbols: {yahoo: IS04.DE}}   # iShares $ Treasury Bond 20+yr UCITS ETF (Dist)
+
+  - id: gold
+    name: Gold
+    asset_class: commodity
+    research: {symbol: GLD, exchange: ARCA, currency: USD, calendar: XNYS, data_symbols: {yahoo: GLD}}
+    trading:
+      {symbol: 4GLD, exchange: IBIS, currency: EUR, calendar: XETR, isin: DE000A0S9GB0,
+       data_symbols: {yahoo: 4GLD.DE}}   # Xetra-Gold (ETC, physically backed)

@@ -16,9 +16,9 @@ Each folder has a `NOTES.md` for what you learn and a starter script you can run
 
 ## RL trading system
 
-[`rl-trading/`](rl-trading) is a separate project in this repo: a reinforcement learning trading
-system (allocation + execution agents), built in validated stages. Start with
-[`rl-trading/HANDOFF.md`](rl-trading/HANDOFF.md) and [`rl-trading/README.md`](rl-trading/README.md).
+The reinforcement learning trading system (allocation + execution agents) that started in the
+`rl-trading/` folder here now lives in its own repository, with its history:
+[enricoconvento98/rl-trading](https://github.com/enricoconvento98/rl-trading).
 
 ## Real experiments
 
